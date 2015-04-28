@@ -16,14 +16,22 @@ except:
 
 import copy
 import hashlib
-import httplib
 import json
 import os.path
 import re
 import socket
 import time
-import urllib
-import urlparse
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
+
+
+try:
+    import httplib
+except ImportError:
+    import http.client as httplib
 
 from collections import defaultdict
 
@@ -79,11 +87,11 @@ PARAM_TYPE_MAP = {
     'pair': tuple,
 
     # str types
-    'str': basestring,
-    'string': basestring,
-    'phid': basestring,
-    'guids': basestring,
-    'type': basestring,
+    'str': str,
+    'string': str,
+    'phid': str,
+    'guids': str,
+    'type': str,
 }
 
 STR_RE = re.compile(r'([a-zA-Z_]+)')
@@ -108,9 +116,9 @@ def map_param_type(param_type):
         sub_match = STR_RE.match(sub_type)
         sub_type = sub_match.group(0).lower()
 
-        return [PARAM_TYPE_MAP.setdefault(sub_type, basestring)]
+        return [PARAM_TYPE_MAP.setdefault(sub_type, str)]
 
-    return PARAM_TYPE_MAP.setdefault(main_type, basestring)
+    return PARAM_TYPE_MAP.setdefault(main_type, str)
 
 
 def parse_interfaces(interfaces):
@@ -121,7 +129,7 @@ def parse_interfaces(interfaces):
     """
     parsed_interfaces = defaultdict(dict)
 
-    for m, d in interfaces.iteritems():
+    for m, d in interfaces.items():
         app, func = m.split('.', 1)
 
         method = parsed_interfaces[app][func] = {}
@@ -133,7 +141,7 @@ def parse_interfaces(interfaces):
         method['optional'] = {}
         method['required'] = {}
 
-        for name, type_info in dict(d['params']).iteritems():
+        for name, type_info in dict(d['params']).items():
             # Usually in the format: <optionality> <param_type>
             info_pieces = type_info.split(' ', 1)
 
@@ -205,12 +213,12 @@ class Result(object):
     def keys(self):
         return self.response.keys()
 
-    def iteritems(self):
-        for k, v in self.response.iteritems():
+    def items(self):
+        for k, v in self.response.items():
             yield k, v
 
-    def itervalues(self):
-        for v in self.response.itervalues():
+    def values(self):
+        for v in self.response.values():
             yield v
 
 
@@ -280,7 +288,7 @@ class Resource(object):
             'Content-Type': 'application/x-www-form-urlencoded'
         }
 
-        body = urllib.urlencode({
+        body = urlparse.urlencode({
             "params": json.dumps(kwargs),
             "output": self.api.response_format
         })
@@ -305,7 +313,7 @@ class Resource(object):
 
 class Phabricator(Resource):
     formats = {
-        'json': lambda x: json.loads(x),
+        'json': lambda x: json.loads(x.decode('utf-8')),
     }
 
     def __init__(self, username=None, certificate=None, host=None,
@@ -345,7 +353,7 @@ class Phabricator(Resource):
         }
 
     def generate_hash(self, token):
-        return hashlib.sha1(token + self.api.certificate).hexdigest()
+        return hashlib.sha1(token.encode('utf-8') + self.api.certificate.encode('utf-8')).hexdigest()
 
     def update_interfaces(self):
         query = Resource(api=self, method='conduit', endpoint='query')
