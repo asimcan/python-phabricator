@@ -208,7 +208,7 @@ class Result(object):
         self.response = state
 
     def __len__(self):
-        return len(self.response.keys())
+        return len(self.response)
 
     def keys(self):
         return self.response.keys()
